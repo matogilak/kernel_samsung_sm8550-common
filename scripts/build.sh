@@ -30,17 +30,16 @@ setup_clang() {
 
     URL_BASE="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive"
     CLANG_URL="$URL_BASE/mirror-goog-main-llvm-toolchain-source/${CLANG_VERSION}.tar.gz"
-    USER_AGENT="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     download_ok=0
     if command -v wget >/dev/null 2>&1; then
-      if wget -U "$USER_AGENT" --tries=5 --waitretry=3 --show-progress -O "$TARBALL" "$CLANG_URL"; then
+      if wget --no-cookies --header "Cookie: gi=0" --tries=5 --waitretry=3 --show-progress -O "$TARBALL" "$CLANG_URL"; then
         download_ok=1
       fi
     fi
 
     if [[ $download_ok -eq 0 ]] && command -v curl >/dev/null 2>&1; then
-      if curl -A "$USER_AGENT" -L --fail --retry 5 --retry-delay 3 --progress-bar -o "$TARBALL" "$CLANG_URL"; then
+      if curl -L -A "Cookie: gi=0" --fail --retry 5 --retry-delay 3 --progress-bar -o "$TARBALL" "$CLANG_URL"; then
         download_ok=1
       fi
     fi
