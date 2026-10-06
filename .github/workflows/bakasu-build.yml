@@ -34,6 +34,11 @@ jobs:
           set -euxo pipefail
           echo "KERNEL_VERSION=$(grep -m1 '^SUBLEVEL =' ./Makefile | awk '{print $3}')" >> $GITHUB_ENV
           curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
+
+          # Locate the directory setup.sh created (drivers/kernelsu -> <dir>/kernel)
+          KSU_DIR="$(dirname "$(dirname "$(readlink -f drivers/kernelsu)")")"
+          # Version = number of commits on main (same as the ksun dev format)
+          echo "KSU_ID=$(git -C "$KSU_DIR" rev-list --count HEAD)" >> $GITHUB_ENV
           CONFIG_FILE=arch/arm64/configs/gki_defconfig
           cat >> "$CONFIG_FILE" << 'EOF'
           CONFIG_KSU=y
@@ -49,6 +54,8 @@ jobs:
           git config --global user.email "gyabii@proton.me"
           git config --global user.name "gyabii"
           chmod +x scripts/build.sh
+          # Kernel name signature, same as the ksun dev build
+          export LOCALVERSION="-VoidKernel"
           ./scripts/build.sh 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
           if [ ! -f "out/arch/arm64/boot/Image.gz" ]; then
             echo "ERROR: Kernel compilation failed! out/arch/arm64/boot/Image.gz not found."
@@ -64,7 +71,7 @@ jobs:
           unzip "anykernel.zip" -d anykernel/
           cp out/arch/arm64/boot/Image.gz anykernel/
           touch -a -m -t 200901010000.00 "anykernel/Image.gz"
-          ZIP_NAME="common-5.15.${KERNEL_VERSION}-gyabii_bakasu-$(date +%d%m%y-%H%M%S)"
+          ZIP_NAME="common-5.15.${KERNEL_VERSION}_bakasu-dev-${KSU_ID}_$(date +%d%m%Y)"
           cd anykernel
           zip -r0 ../"${ZIP_NAME}".zip ./*
           cd ..
