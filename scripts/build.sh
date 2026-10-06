@@ -3,8 +3,7 @@ set -euo pipefail
 
 # (env-overridable)
 KERNEL_DEFCONFIG=${KERNEL_DEFCONFIG:-gki_defconfig}
-CLANG_URL=${CLANG_URL:-"https://github.com/gyabii/kernel_samsung_sm8550-common/releases/download/clang-r614150/clang-r614150.tar.gz"}
-CLANG_VERSION=${CLANG_VERSION:-$(basename "$CLANG_URL" | sed "s/.tar.gz//g")}
+CLANG_VERSION=${CLANG_VERSION:-clang-r614150}
 OUT_DIR=${OUT_DIR:-out}
 CLANG_DIR=${CLANG_DIR:-"$HOME/tools/google-clang"}
 CLANG_BINARY="$CLANG_DIR/bin/clang"
@@ -29,15 +28,18 @@ setup_clang() {
     mkdir -p "$CLANG_DIR"
     TARBALL="$(mktemp)"
 
+    URL_BASE="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive"
+    CLANG_URL="$URL_BASE/mirror-goog-main-llvm-toolchain-source/${CLANG_VERSION}.tar.gz"
+
     download_ok=0
     if command -v wget >/dev/null 2>&1; then
-      if wget --tries=5 --waitretry=3 --show-progress -O "$TARBALL" "$CLANG_URL"; then
+      if wget --no-cookies --header "Cookie: gi=0" --tries=5 --waitretry=3 --show-progress -O "$TARBALL" "$CLANG_URL"; then
         download_ok=1
       fi
     fi
 
     if [[ $download_ok -eq 0 ]] && command -v curl >/dev/null 2>&1; then
-      if curl -L --fail --retry 5 --retry-delay 3 --progress-bar -o "$TARBALL" "$CLANG_URL"; then
+      if curl -L -A "Cookie: gi=0" --fail --retry 5 --retry-delay 3 --progress-bar -o "$TARBALL" "$CLANG_URL"; then
         download_ok=1
       fi
     fi
