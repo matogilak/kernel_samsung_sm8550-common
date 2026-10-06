@@ -57,13 +57,16 @@ jobs:
         id: ksun
         shell: bash
         run: |
+          # "stable" means "latest tagged release" — KernelSU-Next has no
+          # literal "stable" branch/ref, so fetch setup.sh from dev and run
+          # it with no argument: with no arg it checks out the newest tag.
           (curl -sSfL --retry 3 --connect-timeout 5 \
-            "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/stable/kernel/setup.sh" || \
+            "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/dev/kernel/setup.sh" || \
             { echo "ERROR: Failed to retrieve the KernelSU Next setup script! Aborting." >&2; exit 1; }) | \
-            bash -s stable
+            bash -s
 
           # Determine latest tag for stable releases
-          KSU_ID="$(git -C KernelSU-Next tag --list 'v*.[0-9]' --sort=-v:refname | head -1)"
+          KSU_ID="$(git -C KernelSU-Next describe --tags --abbrev=0)"
 
           echo "ksun_id=$KSU_ID" >> "$GITHUB_OUTPUT"
 
@@ -244,3 +247,4 @@ jobs:
         with:
           name: common-${{ steps.meta.outputs.kernel_version }}_${{ steps.meta.outputs.date }}
           path: AnyKernel3/
+          
