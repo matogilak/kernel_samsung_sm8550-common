@@ -30,13 +30,32 @@ jobs:
           wget -q https://github.com/gyabii/kernel_samsung_sm8550-common/releases/download/anykernel/anykernel.zip
 
       - name: Apply BakaSU
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
           echo "KERNEL_VERSION=$(grep -m1 '^SUBLEVEL =' ./Makefile | awk '{print $3}')" >> $GITHUB_ENV
           curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
+
+          # Locate the directory setup.sh created (drivers/kernelsu -> <dir>/kernel)
+          KSU_DIR="$(dirname "$(dirname "$(readlink -f drivers/kernelsu)")")"
+          # Total number of commits on BakaSU main (asked from the GitHub API,
+          # the local clone can be shallow). Only used as a fallback for the zip name.
+          KSU_ID="$(curl -fsSI -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/Baka-SU/BakaSU/commits?sha=main&per_page=1" \
+            | grep -i '^link:' | sed -n 's/.*[?&]page=\([0-9]*\)>; rel="last".*/\1/p')" || true
+          if [ -z "${KSU_ID:-}" ]; then
+            git -C "$KSU_DIR" fetch --unshallow || true
+            KSU_ID="$(git -C "$KSU_DIR" rev-list --count HEAD)"
+          fi
+          echo "KSU_ID=$KSU_ID" >> $GITHUB_ENV
           CONFIG_FILE=arch/arm64/configs/gki_defconfig
+          # Kernel name: "5.15.220-VoidKernel" instead of "5.15.220-g<hash>"
+          sed -i '/^CONFIG_LOCALVERSION=/d;/^CONFIG_LOCALVERSION_AUTO[= ]/d;/^# CONFIG_LOCALVERSION_AUTO is not set/d' "$CONFIG_FILE"
           cat >> "$CONFIG_FILE" << 'EOF'
           CONFIG_KSU=y
+          CONFIG_LOCALVERSION="-VoidKernel"
+          # CONFIG_LOCALVERSION_AUTO is not set
           EOF
 
       - name: Set up swap space
@@ -61,10 +80,14 @@ jobs:
           BUILD_DATE="$(date)"
           TIMESTAMP="$(date +%d%m%y-%H%M%S)"
           set -euxo pipefail
+          # Version shown by the BakaSU manager (e.g. 35236): the KSU_VERSION compiled
+          # into the driver. Fallback: 30000 + commit count.
+          CI_ID="$(grep -rhoE 'DKSU_VERSION=[0-9]+' out/drivers 2>/dev/null | head -n1 | cut -d= -f2 || true)"
+          CI_ID="${CI_ID:-$((30000 + KSU_ID))}"
           unzip "anykernel.zip" -d anykernel/
           cp out/arch/arm64/boot/Image.gz anykernel/
           touch -a -m -t 200901010000.00 "anykernel/Image.gz"
-          ZIP_NAME="common-5.15.${KERNEL_VERSION}-gyabii_bakasu-$(date +%d%m%y-%H%M%S)"
+          ZIP_NAME="S23kernel-5.15.${KERNEL_VERSION}_bakasu-${CI_ID}_$(date +%d%m%Y)"
           cd anykernel
           zip -r0 ../"${ZIP_NAME}".zip ./*
           cd ..
